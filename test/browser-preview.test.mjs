@@ -71,6 +71,7 @@ test('BrowserLauncher：没有浏览器时给出可执行的下一步', async ()
 /* ── 引擎侧全屏预览的源码契约 ───────────────────── */
 
 const SERVER = path.join(process.cwd(), 'engine', 'server.py');
+const PREVIEW = path.join(process.cwd(), 'engine', 'preview.py');
 
 test('引擎有 /v1/zone/preview 路由与实现', () => {
 	const src = fs.readFileSync(SERVER, 'utf8');
@@ -90,18 +91,14 @@ test('全屏预览：先最小化再截图（顺序不能反）', () => {
 });
 
 test('全屏预览：Esc 用全局轮询（不依赖 Tk 焦点）', () => {
-	const src = fs.readFileSync(SERVER, 'utf8');
-	const i = src.indexOf('def _zone_preview');
-	const body = src.slice(i, src.indexOf('def _zone_pick', i));
+	const body = fs.readFileSync(PREVIEW, 'utf8');
 	assert.match(body, /GetAsyncKeyState/, '必须用全局键状态轮询');
 	assert.match(body, /Button-3/, '必须有右键兜底');
 });
 
 test('全屏预览：右下角预览窗 + 高亮框', () => {
-	const src = fs.readFileSync(SERVER, 'utf8');
-	const i = src.indexOf('def _zone_preview');
-	const body = src.slice(i, src.indexOf('def _zone_pick', i));
-	assert.match(body, /预览：/, '必须有右下角预览标题');
+	const body = fs.readFileSync(PREVIEW, 'utf8');
+	assert.match(body, /def _draw_frame/, '必须有预览窗标题栏');
 	assert.match(body, /create_rectangle/, '必须画高亮框');
 	assert.match(body, /outline="#000000"/, '框要用黑色（用户在浅色界面上看不清青色）');
 });

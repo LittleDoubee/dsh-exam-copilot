@@ -17,6 +17,8 @@ const LAUNCH = path.join(process.cwd(), 'lib', 'core', 'browser-launch.js');
 
 const client = () => fs.readFileSync(CLIENT, 'utf8');
 const server = () => fs.readFileSync(SERVER, 'utf8');
+const preview = () => fs.readFileSync(path.join(process.cwd(), 'engine', 'preview.py'), 'utf8');
+const previewHandler = () => server().slice(server().indexOf('def _zone_preview'), server().indexOf('def _zone_pick'));
 
 /* ── 1. 按钮形状 ───────────────────────────────── */
 
@@ -92,35 +94,34 @@ test('浏览器：面板有选浏览器的 UI 与提示', () => {
 /* ── 3. 全屏预览 ───────────────────────────────── */
 
 test('全屏预览：黑框黑字（不是青色）', () => {
-	const body = server().slice(server().indexOf('def _zone_preview'), server().indexOf('def _zone_pick'));
+	const body = preview();
 	assert.match(body, /outline="#000000"/, '框必须是黑色');
 	assert.match(body, /fill="#000000"/, '文字必须是黑色');
 	assert.ok(!/#22d3ee/.test(body), '不应再有青色');
 });
 
 test('全屏预览：不压暗、鼠标保持原状态', () => {
-	const body = server().slice(server().indexOf('def _zone_preview'), server().indexOf('def _zone_pick'));
+	const body = preview();
 	assert.ok(!/stipple="gray50"/.test(body), '不应再压暗框外/框内（用户要看原图）');
 	assert.ok(!/cursor="crosshair"/.test(body), '鼠标不应变成十字');
 });
 
 test('全屏预览：支持点选区域 + 缩放按钮 + 更大预览框', () => {
-	const body = server().slice(server().indexOf('def _zone_preview'), server().indexOf('def _zone_pick'));
+	const body = preview();
 	assert.match(body, /def hit_test/, '需要命中判定（点选）');
 	assert.match(body, /def zoom_in/, '需要放大');
 	assert.match(body, /def zoom_out/, '需要缩小');
-	assert.match(body, /PREVIEW_W = max\(420,/, '预览框宽至少 420（比之前 360 更大，且随屏幕放大）');
-	assert.match(body, /PREVIEW_H = max\(240,/, '预览框高至少 240（下方还要放自检结果）');
+	assert.match(body, /self\.PREVIEW_W = max\(420,/, '预览框宽至少 420（比之前 360 更大，且随屏幕放大）');
+	assert.match(body, /self\.PREVIEW_H = max\(240,/, '预览框高至少 240（下方还要放自检结果）');
 	assert.match(body, /def on_drag/, '放大后要能拖动查看（否则超出部分看不见）');
-	assert.match(body, /st\["pan"\]/, '放大后按 pan 裁出可视部分');
+	assert.match(body, /self\.pan/, '放大后按 pan 裁出可视部分');
 	assert.match(body, /ZOOM_STEPS/, '要有缩放档位');
 });
 
 test('全屏预览：Esc 全局轮询 + 右键退出仍保留', () => {
-	const body = server().slice(server().indexOf('def _zone_preview'), server().indexOf('def _zone_pick'));
-	assert.match(body, /GetAsyncKeyState/, 'Esc 用全局轮询');
-	assert.match(body, /Button-3/, '右键兜底');
-	assert.match(body, /restore_windows\(hidden\)/, '必须恢复宿主');
+	assert.match(preview(), /GetAsyncKeyState/, 'Esc 用全局轮询');
+	assert.match(preview(), /Button-3/, '右键兜底');
+	assert.match(previewHandler(), /restore_windows\(hidden\)/, '必须恢复宿主');
 });
 
 /* ── 4. 圈选后立刻截图 + 移进自检 ──────────────── */
