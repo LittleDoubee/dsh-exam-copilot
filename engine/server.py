@@ -609,6 +609,64 @@ def drop_rows_in_regions(rows, regions, ox=0, oy=0):
     return out
 
 
+def locate_target_window(title, notes):
+    """按标题找窗口并激活；找不到时退回前台窗口。"""
+    win = None
+    if title and hasattr(winio, "client_rect"):
+        win = winio.client_rect(title)
+        if win:
+            winio.activate(title)
+            time.sleep(0.2)
+            win = winio.client_rect(title) or win  # 激活后位置可能变（从最小化恢复）
+        else:
+            notes.append(f"没找到标题含「{title}」的窗口，改用前台窗口")
+    if not win and hasattr(winio, "foreground_client_rect"):
+        win = winio.foreground_client_rect()
+    return win
+
+
+def layout_ocr_rows(tmp, ox, oy):
+    """OCR 整张图，返回换算到屏幕坐标的行与所用引擎。"""
+    if ocr_hybrid is not None:
+        rows, _p, used, _why = ocr_hybrid.recognize(tmp, box=None)
+    else:
+        rows, used = ocr_engine.recognize(tmp), "windows"
+    shifted = []
+    for r in rows or []:
+        try:
+            shifted.append({**r, "x": float(r["x"]) + ox, "y": float(r["y"]) + oy})
+        except Exception:
+            continue
+    return shifted, used
+
+
+LAYOUT_COLORS = {"options": (220, 40, 40), "question": (40, 120, 220), "progress": (40, 170, 70),
+                 "timer": (200, 140, 0), "next": (150, 60, 200), "prev": (150, 60, 200), "submit": (0, 0, 0)}
+
+
+def layout_debug_image(tmp, rows, res, ox, oy):
+    """诊断图：灰框为 OCR 行、彩框为推断区域，用来区分坐标偏差与归并规则问题。返回 (路径, 尺寸)。"""
+    try:
+        from PIL import Image as _Image, ImageDraw as _Draw
+        dim = _Image.open(tmp).convert("RGB")
+        d = _Draw.Draw(dim)
+        for r in rows:
+            x, y = r["x"] - ox, r["y"] - oy
+            d.rectangle([x, y, x + float(r["w"]), y + float(r["h"])], outline=(150, 150, 150))
+        for z in res.get("zones", []):
+            x, y = z["x"] - ox, z["y"] - oy
+            c = LAYOUT_COLORS.get(z["role"], (255, 0, 255))
+            d.rectangle([x, y, x + z["w"], y + z["h"]], outline=c, width=3)
+            d.text((x + 3, y + 3), f'{z["role"]} {z.get("conf", "")}', fill=c)
+        path = os.path.join(HERE, "_layout_debug.png")
+        dim.save(path)
+        return path, list(dim.size)
+    except Exception as e:
+        log(f"版面诊断图生成失败：{e}")
+        return None, None
+
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = f"ExamEngine/{VERSION}"
     token = ""
@@ -900,8 +958,8 @@ class Handler(BaseHTTPRequestHandler):
     def _zone_pick(self, req):
         """圈选：起一个 Tk 全屏窗口让用户拖框，返回区域组。
 
-        S1 只支持单框（拖一次得到一个矩形），多区域由用户在面板里指定角色。
-        这是刻意的最小实现 —— 多框圈选交互复杂，等 S1 验收后再加。
+        顺序：最小化宿主 → 截底图 → 保持宿主最小化弹全屏圈选窗 → 结束后恢复宿主。
+        交互细节见 picker.ZonePicker。
         """
         try:
             import ctypes
@@ -913,13 +971,7 @@ class Handler(BaseHTTPRequestHandler):
 
         dpi_aware()
 
-        # 顺序很关键（这是两轮 "Esc 退不出" + "底图里是 DSH" 的真正根因）：
-        #   ① 最小化宿主 → 截底图（底图里没有 DSH）
-        #   ② **保持宿主最小化**，弹全屏 Tk 圈选窗
-        #   ③ 用户画完/取消 → 销毁 Tk → 最后才恢复宿主
-        #
-        # 旧实现是"截图后立刻 restore"，于是 DSH 抢回前台，
-        # Tk 窗口失去键盘焦点 → Esc/Enter 全失效；同时底图也可能截到刚恢复的 DSH。
+        # 截图后不能立刻恢复宿主：宿主回到前台会抢走圈选窗的键盘焦点，底图也可能截到宿主
         hidden = hide_own_windows()
         # 多等一会：Windows 的最小化动画约 200-350ms，抢早了会截到残影
         time.sleep(0.15)
@@ -929,171 +981,14 @@ class Handler(BaseHTTPRequestHandler):
             restore_windows(hidden)
             return self._send(503, {"error": f"截图失败: {e}"})
         SW, SH = shot.size
-        result = {"box": None, "cancelled": False}
-
-        root = tk.Tk()
-        root.title("圈定区域 — 拖拽画框，Enter 保存，Esc/右键取消，R 重画")
-        root.attributes("-fullscreen", True)
-        root.attributes("-topmost", True)
-        # grab_set：把自己设为"模态"，所有输入事件强制进入本窗口。
-        # 这是比 focus_force 更强的保证 —— 宿主即便想抢回前台，
-        # 键盘事件也仍然投给本窗口，Esc 必定生效。
-        try:
-            root.grab_set()
-        except Exception:
-            pass
-        root.configure(cursor="crosshair")
-        canvas = tk.Canvas(root, width=SW, height=SH, highlightthickness=0, bg="black")
-        canvas.pack(fill="both", expand=True)
-        photo = ImageTk.PhotoImage(shot)
-        canvas.create_image(0, 0, anchor="nw", image=photo)
-
-        st = {"x0": 0, "y0": 0, "rect": None, "box": None}
-
-        def on_press(e):
-            st["x0"], st["y0"] = e.x, e.y
-            if st["rect"]:
-                canvas.delete(st["rect"])
-            st["rect"] = canvas.create_rectangle(e.x, e.y, e.x, e.y, outline="#22d3ee", width=3)
-
-        def on_drag(e):
-            if st["rect"]:
-                canvas.coords(st["rect"], st["x0"], st["y0"], e.x, e.y)
-
-        def on_release(e):
-            x0, y0 = st["x0"], st["y0"]
-            x1, y1 = e.x, e.y
-            st["box"] = (min(x0, x1), min(y0, y1), abs(x1 - x0), abs(y1 - y0))
-
-        def do_save(_e=None):
-            result["box"] = st["box"]
-            root.destroy()
-
-        def do_clear(_e=None):
-            st["box"] = None
-            if st["rect"]:
-                canvas.delete(st["rect"])
-                st["rect"] = None
-
-        canvas.bind("<ButtonPress-1>", on_press)
-        canvas.bind("<B1-Motion>", on_drag)
-        canvas.bind("<ButtonRelease-1>", on_release)
-
-        # ── 键盘事件：必须用 bind_all ────────────────────────────
-        # 这是 Esc 退不出的**真正根因**：
-        #   Tk 的键击只投递给「当前拥有焦点的控件」。
-        #   先用 canvas.focus_set() 把焦点给了画布，于是挂在 root 上的
-        #   root.bind("<Escape>", ...) 永远收不到 —— 而右键（鼠标事件走坐标命中）
-        #   能退出，正好反证了键盘事件被画布吃掉。
-        #   bind_all 把处理器挂到整个应用级，不再依赖哪个控件有焦点。
-        def do_cancel(_e=None):
-            result["cancelled"] = True
-            root.destroy()
-            return "break"  # 阻止事件继续传播
-
-        root.bind_all("<Escape>", do_cancel)
-        root.bind_all("<Return>", lambda e: (do_save(), "break")[1])
-        root.bind_all("<r>", lambda e: (do_clear(), "break")[1])
-        root.bind_all("<R>", lambda e: (do_clear(), "break")[1])
-
-        # 窗口级也绑一份（双保险；bind_all 在某些 Tk 版本上与窗口级会互相覆盖）
-        root.bind("<Escape>", do_cancel)
-        root.bind("<Return>", do_save)
-        root.bind("<r>", do_clear)
-        root.bind("<R>", do_clear)
-        root.bind("<Double-Button-1>", do_save)
-
-        # ── 焦点修复─────────────────
-        # -topmost 只保证"显示在最上面"，**不保证接收键盘事件**。
-        # 窗口刚创建时键盘焦点常还在宿主那边，于是 bind 上去的 Esc/Enter/R 全部收不到，
-        # 用户只能干等 3 分钟超时。
-        # 修法：① 主动抢焦点（延迟再抢一次，刚创建时抢常失败）
-        #       ② 窗口和画布都设 focus
-        #       ③ 另留鼠标右键退出 —— 键盘拿不到焦点时至少还有路可走
-        root.focus_force()
-        canvas.focus_set()
-
-        def grab_focus():
-            try:
-                root.focus_force()
-                canvas.focus_set()
-                root.lift()
-            except Exception:
-                pass
-
-        # 持续夺焦（不只在启动时抢两次）。
-        # 理由：宿主被最小化后，Windows 可能在数百毫秒内把焦点还给恢复中的窗口，
-        # 只在 t=60/250ms 抢两次不够 —— 用户这时候可能还没开始画框。
-        # 每 400ms 抢一次，直到用户开始操作（on_press 会置 started）。
-        def keep_focus():
-            if result.get("box") or result.get("cancelled"):
-                return  # 已经有结果，不用再抢
-            grab_focus()
-            root.after(400, keep_focus)
-
-        root.after(60, grab_focus)
-        root.after(250, grab_focus)
-        root.after(600, keep_focus)
-
-        # ── 键盘全局轮询─────────────────
-        # 前两次分别试过 root.bind / bind_all / grab_set /
-        # 每 400ms focus_force，用户实测**仍然只能右键退出**
-        # —— 这反证了键盘事件根本没进本进程：
-        #   右键能退，是因为鼠标走“坐标命中”，与焦点无关。
-        # 根因：Windows 有前台锁，跨进程抢焦点必须
-        # AttachThreadInput + SetForegroundWindow，而 focus_force()
-        # 只是“本进程内请求”。
-        # 所以彻底放弃“让 Tk 收到键击”，改成**直接读全局键状态**：
-        # GetAsyncKeyState 不经过焦点、不经过消息队列，
-        # 物理键按下就能读到。
-        # 边沿检测（按下瞬间只触发一次），避免长按重复触发 / 误判。
-        _vk = {'esc': 0x1B, 'enter': 0x0D, 'r': 0x52}
-        _prev = {'esc': False, 'enter': False, 'r': False}
-
-        def poll_hotkeys():
-            if result.get('box') or result.get('cancelled'):
-                return
-            try:
-                u32k = ctypes.windll.user32
-                u32k.GetAsyncKeyState.restype = ctypes.c_short
-                u32k.GetAsyncKeyState.argtypes = [ctypes.c_int]
-                now = {}
-                for _k, _v in _vk.items():
-                    now[_k] = bool(u32k.GetAsyncKeyState(_v) & 0x8000)
-            except Exception:
-                # 非 Windows / ctypes 不可用：退回 Tk 绑定，不再轮询
-                return
-            for _k in ('esc', 'enter', 'r'):
-                if now[_k] and not _prev[_k]:
-                    _prev.update(now)
-                    if _k == 'esc':
-                        do_cancel()
-                        return
-                    if _k == 'enter':
-                        do_save()
-                        return
-                    do_clear()
-            _prev.update(now)
-            root.after(60, poll_hotkeys)
-
-        root.after(80, poll_hotkeys)
-
-        # 鼠标右键 = 取消（保底退出方式；即使键盘焦点被系统抢走也能用）
-        root.bind("<Button-3>", do_cancel)
-        canvas.bind("<Button-3>", do_cancel)
-
-        # 窗口被强制关闭（点 X）时也要走 destroy，避免 mainloop 卡住
-        root.protocol("WM_DELETE_WINDOW", do_cancel)
-
         timeout_ms = int(req.get("timeoutMs") or 180000)
-        root.after(timeout_ms, root.destroy)
-
+        result = {"box": None, "cancelled": False}
         try:
-            root.mainloop()
+            from picker import ZonePicker
+
+            result = ZonePicker(shot, tk, ImageTk, ctypes).run(timeout_ms)
         finally:
-            # 必须在这里恢复宿主：这是唯一保证"无论用户是保存、Esc、右键还是超时，
-            # DSH 都会回来"的位置。放在别处都可能被异常跳过，
-            # 结果是用户看到 DSH 消失了却回不来。
+            # 无论保存、取消、超时还是异常都要恢复宿主
             restore_windows(hidden)
             # 把 DSH 窗口提到前台，避免"圈完了但界面还在后面"
             if hidden:
@@ -1137,58 +1032,13 @@ class Handler(BaseHTTPRequestHandler):
         if ocr_hybrid is None and ocr_engine is None:
             return self._send(503, {"error": "没有可用的 OCR 引擎"})
 
-        win = None
-        region = req.get("region")
-        title = str(req.get("title") or "")
-        image_path = req.get("imagePath")
-        notes_extra = []
-
-        if image_path:
-            tmp, ox, oy = image_path, 0, 0
-        else:
-            hidden = hide_own_windows() if req.get("hideWindows") is True else []
-            try:
-                # 定位目标窗口要在 DSH 让开之后做：此时前台才是考试窗口
-                if not region and winio:
-                    if title and hasattr(winio, "client_rect"):
-                        win = winio.client_rect(title)
-                        if win:
-                            winio.activate(title)
-                            time.sleep(0.2)
-                            win = winio.client_rect(title) or win  # 激活后位置可能变（从最小化恢复）
-                        else:
-                            notes_extra.append(f"没找到标题含「{title}」的窗口，改用前台窗口")
-                    if not win and hasattr(winio, "foreground_client_rect"):
-                        win = winio.foreground_client_rect()
-                    if win:
-                        region = [win["x"], win["y"], win["w"], win["h"]]
-                    else:
-                        notes_extra.append("没定位到目标窗口，按整屏识别")
-                im = grab_image(region)
-            finally:
-                restore_windows(hidden)
-            tmp = os.path.join(HERE, "_layout.png")
-            im.save(tmp)
-            if region:
-                ox, oy = int(region[0]), int(region[1])
-            else:
-                # 整屏截图的 (0,0) 是虚拟桌面左上角，多屏时可能是负坐标
-                try:
-                    ox, oy = winio.virtual_screen_origin() if winio else (0, 0)
-                except Exception:
-                    ox, oy = 0, 0
+        res_cap = self._layout_capture(req)
+        if res_cap.get("error"):
+            return self._send(503, {"error": res_cap["error"]})
+        tmp, ox, oy, win = res_cap["tmp"], res_cap["ox"], res_cap["oy"], res_cap["win"]
 
         t0 = time.perf_counter()
-        if ocr_hybrid is not None:
-            rows, _p, used, _why = ocr_hybrid.recognize(tmp, box=None)
-        else:
-            rows, used = ocr_engine.recognize(tmp), "windows"
-        shifted = []
-        for r in rows or []:
-            try:
-                shifted.append({**r, "x": float(r["x"]) + ox, "y": float(r["y"]) + oy})
-            except Exception:
-                continue
+        shifted, used = layout_ocr_rows(tmp, ox, oy)
         res = layout_mod.detect(shifted)
         # 按钮补读：彩底白字（下一题）、浅色细字（交卷）Windows OCR 常整块漏掉
         try:
@@ -1196,43 +1046,53 @@ class Handler(BaseHTTPRequestHandler):
             if extra:
                 shifted = shifted + extra
                 res = layout_mod.detect(shifted)
-                res.setdefault("notes", [])
-                res["notes"] = list(res["notes"]) + [f"按钮补读新增 {len(extra)} 行：" + "、".join(r["text"] for r in extra)]
+                res["notes"] = list(res.get("notes") or []) + [f"按钮补读新增 {len(extra)} 行：" + "、".join(r["text"] for r in extra)]
         except Exception as e:
             log(f"按钮补读失败：{e}")
-        # 诊断图：在这次识别用的截图上画出 OCR 行（灰）和推断区域（彩色）。
-        # 框对不上时看这张图就能分清：是 OCR 行本身偏了（坐标/DPI 问题），
-        # 还是 OCR 行对、但区域归并错了（规则问题）。
-        debug_path = None
-        try:
-            from PIL import Image as _Image, ImageDraw as _Draw
-            dim = _Image.open(tmp).convert("RGB")
-            d = _Draw.Draw(dim)
-            for r in shifted:
-                x, y = r["x"] - ox, r["y"] - oy
-                d.rectangle([x, y, x + float(r["w"]), y + float(r["h"])], outline=(150, 150, 150))
-            colors = {"options": (220, 40, 40), "question": (40, 120, 220), "progress": (40, 170, 70),
-                      "timer": (200, 140, 0), "next": (150, 60, 200), "prev": (150, 60, 200), "submit": (0, 0, 0)}
-            for z in res.get("zones", []):
-                x, y = z["x"] - ox, z["y"] - oy
-                c = colors.get(z["role"], (255, 0, 255))
-                d.rectangle([x, y, x + z["w"], y + z["h"]], outline=c, width=3)
-                d.text((x + 3, y + 3), f'{z["role"]} {z.get("conf", "")}', fill=c)
-            debug_path = os.path.join(HERE, "_layout_debug.png")
-            dim.save(debug_path)
-        except Exception as e:
-            log(f"版面诊断图生成失败：{e}")
+        debug_path, size = layout_debug_image(tmp, shifted, res, ox, oy)
         return self._send(200, {
             "debugImage": debug_path,
-            "imageSize": list(_Image.open(tmp).size) if debug_path else None,
+            "imageSize": size,
             "ok": True,
             "engine": used,
             "ms": round((time.perf_counter() - t0) * 1000, 1),
             "window": win,
             "rows": len(shifted),
             **res,
-            "notes": notes_extra + list(res.get("notes") or []),
+            "notes": res_cap["notes"] + list(res.get("notes") or []),
         })
+
+    def _layout_capture(self, req):
+        """确定识别区域并截图。返回 {tmp, ox, oy, win, notes}；ox/oy 为图内坐标到屏幕坐标的偏移。"""
+        region = req.get("region")
+        title = str(req.get("title") or "")
+        image_path = req.get("imagePath")
+        notes, win = [], None
+        if image_path:
+            return {"tmp": image_path, "ox": 0, "oy": 0, "win": None, "notes": notes}
+        hidden = hide_own_windows() if req.get("hideWindows") is True else []
+        try:
+            # 定位目标窗口要在 DSH 让开之后做：此时前台才是考试窗口
+            if not region and winio:
+                win = locate_target_window(title, notes)
+                if win:
+                    region = [win["x"], win["y"], win["w"], win["h"]]
+                else:
+                    notes.append("没定位到目标窗口，按整屏识别")
+            im = grab_image(region)
+        finally:
+            restore_windows(hidden)
+        tmp = os.path.join(HERE, "_layout.png")
+        im.save(tmp)
+        if region:
+            ox, oy = int(region[0]), int(region[1])
+        else:
+            # 整屏截图的 (0,0) 是虚拟桌面左上角，多屏时可能是负坐标
+            try:
+                ox, oy = winio.virtual_screen_origin() if winio else (0, 0)
+            except Exception:
+                ox, oy = 0, 0
+        return {"tmp": tmp, "ox": ox, "oy": oy, "win": win, "notes": notes}
 
     def _window_rect(self, req):
         """返回目标窗口客户区的屏幕矩形，供区域按比例坐标解析。"""

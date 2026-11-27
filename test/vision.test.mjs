@@ -140,9 +140,10 @@ test('Runner 源码契约：截图失败要退化为纯文字，而不是让整�
 
 test('视觉通道只在题库没给出可接受答案时才启用（不浪费 token）', () => {
 	const src = fs.readFileSync(path.join(ROOT, 'lib', 'core', 'runner.js'), 'utf8');
-	// 题库命中路径应该 return 在前，走不到模型分支
-	const bankIdx = src.indexOf('题库${bankResult.confidence}命中');
-	const modelIdx = src.indexOf('// 2) 模型');
+	// _resolve 里题库通道必须先调用并在命中时 return，走不到模型通道
+	const body = src.slice(src.indexOf('async _resolve(question)'), src.indexOf('_resolveGate(question) {'));
+	const bankIdx = body.indexOf('this._resolveFromBank(');
+	const modelIdx = body.indexOf('this._resolveFromModel(');
 	assert.ok(bankIdx > 0 && modelIdx > 0, '找不到题库/模型两段');
 	assert.ok(
 		bankIdx < modelIdx,
