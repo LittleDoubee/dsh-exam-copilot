@@ -13,7 +13,6 @@
   "files": [
     "lib",
     "engine",
-    "mock",
     "cordis.patch.yml",
     "README.md",
     "DESIGN.md"

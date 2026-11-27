@@ -12,7 +12,7 @@
 //   这等于把**题库整条通道**从协同模式里摘掉了。后果：
 //     * 与 README「题库是省时间省钱的主力，高置信命中时完全不需要调模型」
 //       直接矛盾；
-//     * 实测 mock 第 1 题：题库有 medium-high 命中（答案 A），
+//     * 例：题库有 medium-high 命中（答案 A），
 //       但协同模式仍然去问模型；而宿主 llm 不可用时 solver 为 null，
 //       于是 answer=null → paused/unknown_question。
 //       **题库里明明有答案却答不出来。**

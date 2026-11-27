@@ -181,7 +181,7 @@ test('checkQuestionComplete: 字母断号要判不完整（这是最危险的静
 });
 
 test('checkQuestionComplete: _letter_gap 必须拦（OCR 漏行被静默吞掉的真实事故）', () => {
-	// mock 第 5 题，图形题）：
+	// 图形题）：
 	//   Windows OCR 整行漏掉 "C成本核算"，
 	//   解析器旧实现静默丢掉因之失配的 D，又把 "D市场推广" 当续行拼进 B，
 	//   最终 opts = [A, B(排版十D市场推广)]。

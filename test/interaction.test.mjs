@@ -994,7 +994,7 @@ test('【真实渲染】确认区域后卡片不能变空白（防白屏）', as
 	const before = await renderSettled(Page);
 	assert.match(before, /考试配置/, '前置：卡片应正常渲染');
 
-	// 点「圈选一块区域」→ mock 返回一个框
+	// 点「圈选一块区域」→ 替身返回一个框
 	clicks = collectClickables(Page());
 	const pick = clicks.find((c) => textOf(c.props) === '圈选一块区域');
 	assert.ok(pick, '应有圈选按钮');

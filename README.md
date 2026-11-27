@@ -39,14 +39,11 @@ pip install pillow rapidocr-onnxruntime psutil
 3. **题库** 页导入题库（可选）
 4. **运行** 页选择模式后开始
 
-`mock/` 下提供了一套模拟考试页面和配置，可用来体验完整流程。
-
 ## 项目结构
 
 ```
 engine/        Python 引擎（截图、OCR、版面识别、全屏预览、动作执行）
 lib/           插件主体（面板、运行状态机、题库、模型调用）
-mock/          模拟考试页面与示例配置
 test/          单元测试
 ```
 

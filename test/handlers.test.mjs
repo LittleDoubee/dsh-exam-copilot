@@ -31,6 +31,9 @@ import { findUndefinedCalls } from './_static-udf.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
+// 示例题库由使用者自备（不随仓库发布）；缺失时跳过依赖它的用例
+const SAMPLE_BANK = path.join(ROOT, 'mock', 'mock-12.json');
+const HAS_SAMPLE = fs.existsSync(SAMPLE_BANK);
 const INDEX_SRC = path.join(ROOT, 'lib', 'index.js');
 
 /**
@@ -345,7 +348,7 @@ test('所有不依赖引擎的 handler 都不能抛代码级错误（覆盖盲�
 	}
 });
 
-test('banks.match：修复后必须能命中（normalizeStem 未定义回归）', async () => {
+test('banks.match：修复后必须能命中（normalizeStem 未定义回归）', { skip: !HAS_SAMPLE }, async () => {
 	const { rpc, cleanup } = await bootHost();
 	try {
 		const created = await rpc('banks.create', { name: 'match-regression' });
@@ -385,7 +388,7 @@ test('banks.match：修复后必须能命中（normalizeStem 未定义回归）'
 	}
 });
 
-test('banks.match：mock 12 题逐条全中（题库通道确实能用）', async () => {
+test('banks.match：示例题库逐条全中（题库通道确实能用）', { skip: !HAS_SAMPLE }, async () => {
 	const { rpc, cleanup } = await bootHost();
 	try {
 		const created = await rpc('banks.create', { name: 'match-all' });
@@ -397,7 +400,7 @@ test('banks.match：mock 12 题逐条全中（题库通道确实能用）', asyn
 		});
 
 		const items = JSON.parse(fs.readFileSync(path.join(ROOT, 'mock', 'mock-12.json'), 'utf8')).items;
-		assert.equal(items.length, 12, 'mock-12.json 应该是 12 题');
+		assert.equal(items.length, 12, '示例题库应该是 12 题');
 
 		const fails = [];
 		for (const it of items) {
@@ -415,7 +418,7 @@ test('banks.match：mock 12 题逐条全中（题库通道确实能用）', asyn
 	}
 });
 
-test('banks.sources：文本/JSON 导入的题也能列出来源（不能整块消失）', async () => {
+test('banks.sources：文本/JSON 导入的题也能列出来源（不能整块消失）', { skip: !HAS_SAMPLE }, async () => {
 	const { rpc, cleanup } = await bootHost();
 	try {
 		const created = await rpc('banks.create', { name: 'sources-regression' });

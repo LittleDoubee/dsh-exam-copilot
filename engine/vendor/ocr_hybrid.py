@@ -336,7 +336,7 @@ def recognize(path, box=None, expect_opts=None, verbose=False):
     #
     # 旧判据是「选项数更多就更优」，这是**错的**。
     #
-    # 真实反例（mock 第 12 题，判断题）：
+    # 真实反例（判断题）：
     #   Windows  → rows: [题干, "A正确", "00"]        opts = [A]        1 个
     #   RapidOCR → rows: [假B, 题干, "A 正确", "B", "错误", ...]
     #              opts = [B:'', B:'错误']             2 个 ← 数量多但全错
