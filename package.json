@@ -1,0 +1,61 @@
+{
+  "name": "dsh-exam-copilot",
+  "version": "0.6.0",
+  "description": "DSH 考试助手：OCR 识别屏幕/浏览器中的试题，题库与模型双通道作答，支持人机协同与全自动操作。控制面板在 设置 → 考试助手。",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "engine",
+    "mock",
+    "cordis.patch.yml",
+    "README.md",
+    "DESIGN.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "node --test test/core.test.mjs test/s2.test.mjs test/s3.test.mjs test/runner.test.mjs test/overlay.test.mjs test/overlay-view.test.mjs test/interaction.test.mjs test/client.test.mjs test/client-render.test.mjs test/answer.test.mjs test/answer-split.test.mjs test/doc-read.test.mjs test/multi-bank.test.mjs test/dedup.test.mjs test/sources.test.mjs test/vote.test.mjs test/dom-assist.test.mjs test/dom-reader.test.mjs test/browser-preview.test.mjs test/round2.test.mjs test/handlers.test.mjs test/bank-tolerance.test.mjs test/corrections.test.mjs test/copilot.test.mjs test/copilot-state.test.mjs test/budget-timing.test.mjs test/parser-merge.test.mjs test/action-bounds.test.mjs test/vision.test.mjs",
+    "test:e2e": "python test/e2e.py",
+    "test:e2e:s2": "python test/e2e-s2.py",
+    "test:e2e:bank": "python test/e2e-bank.py",
+    "check": "node --check lib/client.js",
+    "test:readonly": "node test/readonly-12.mjs",
+    "test:calibrate": "python test/calibrate-zones.py"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "exam",
+    "ocr",
+    "automation",
+    "copilot"
+  ],
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  }
+}

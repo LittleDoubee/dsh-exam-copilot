@@ -1,0 +1,36 @@
+# 本地开发副本、真实题库、考试截图
+.private/
+.testdata/
+
+# 运行期 / 调试产物
+*.log
+engine/_*.png
+engine/vendor/*.png
+engine/_*.json
+
+# 本地迭代与协作文档（不对外发布）
+CHANGELOG.md
+AGENTS.md
+BACKLOG.md
+TEST-REPORT.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 依赖与构建
+node_modules/
+dist/
+
+# 本机诊断 / 探针脚本（依赖本机环境与真实窗口）
+test/diag-*
+test/probe-*
+test/pin-window.py
+test/window-hide.py
+test/calibrate-zones.py
+test/e2e*.py
+test/readonly-12.mjs
+
+# 设计文档（含过程性内容，仅本地）
+DESIGN.md

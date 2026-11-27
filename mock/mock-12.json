@@ -1,0 +1,156 @@
+{
+  "_note": "mock/index.html 那 12 道题的题库形态，供全自动测试使用。用途：让题库通道能命中，从而测插件本身而不是测模型。图形题（第 5 题）刻意保留——它的题干与选项都能被 OCR 读到，只有图里的流程内容读不到，正好用来验证'图读不出也能靠文字答对'。",
+  "_keep-in-sync": "题目改动必须同时改 mock/index.html 的 QUESTIONS，否则全自动跑出来的分数没有参考意义。",
+  "items": [
+    {
+      "no": 1,
+      "qtype": "单选题",
+      "stem": "根据《印刷业管理条例》，从事出版物印刷经营活动的企业，应当取得下列哪项许可？",
+      "options": [
+        { "letter": "A", "text": "印刷经营许可证" },
+        { "letter": "B", "text": "出版物经营许可证" },
+        { "letter": "C", "text": "特种行业许可证" },
+        { "letter": "D", "text": "营业执照即可" }
+      ],
+      "answer": "A",
+      "tags": ["mock", "单选"]
+    },
+    {
+      "no": 2,
+      "qtype": "多选题",
+      "stem": "下列哪些属于出版物印刷企业应当建立的内部管理制度？",
+      "options": [
+        { "letter": "A", "text": "承印验证制度" },
+        { "letter": "B", "text": "承印登记制度" },
+        { "letter": "C", "text": "印刷品保管制度" },
+        { "letter": "D", "text": "印刷活动残次品销毁制度" }
+      ],
+      "answer": "ABCD",
+      "tags": ["mock", "多选"]
+    },
+    {
+      "no": 3,
+      "qtype": "判断题",
+      "stem": "印刷企业接受委托印刷境外出版物，无需向所在地出版行政部门备案。",
+      "options": [
+        { "letter": "A", "text": "正确" },
+        { "letter": "B", "text": "错误" }
+      ],
+      "answer": "B",
+      "tags": ["mock", "判断"]
+    },
+    {
+      "no": 4,
+      "qtype": "单选题",
+      "stem": "某印刷企业在承接一批内部资料性出版物印刷业务时，委托方未能提供完整的准印证材料，该企业负责人认为只要双方签订书面合同即可承印。关于该情形的处理，下列说法中正确的是：",
+      "options": [
+        { "letter": "A", "text": "可以先承印，事后补齐材料即可" },
+        { "letter": "B", "text": "应当拒绝承印，并说明理由" },
+        { "letter": "C", "text": "可以承印但需在十日内报备" },
+        { "letter": "D", "text": "只需留存合同副本备查" }
+      ],
+      "answer": "B",
+      "tags": ["mock", "单选", "长题干", "需滚动"]
+    },
+    {
+      "no": 5,
+      "qtype": "单选题",
+      "stem": "下图所示流程图中，缺失的环节应当是：",
+      "options": [
+        { "letter": "A", "text": "承印登记" },
+        { "letter": "B", "text": "排版设计" },
+        { "letter": "C", "text": "成本核算" },
+        { "letter": "D", "text": "市场推广" }
+      ],
+      "answer": "A",
+      "tags": ["mock", "单选", "图形题"]
+    },
+    {
+      "no": 6,
+      "qtype": "单选题",
+      "stem": "印刷经营许可证的有效期一般为：",
+      "options": [
+        { "letter": "A", "text": "一年" },
+        { "letter": "B", "text": "三年" },
+        { "letter": "C", "text": "五年" },
+        { "letter": "D", "text": "长期有效" }
+      ],
+      "answer": "C",
+      "tags": ["mock", "单选"]
+    },
+    {
+      "no": 7,
+      "qtype": "多选题",
+      "stem": "出版物印刷企业不得印刷下列哪些内容？",
+      "options": [
+        { "letter": "A", "text": "含有法律禁止内容的出版物" },
+        { "letter": "B", "text": "未经批准的内部资料" },
+        { "letter": "C", "text": "境外出版物" },
+        { "letter": "D", "text": "假冒他人署名的作品" }
+      ],
+      "answer": "ABD",
+      "tags": ["mock", "多选"]
+    },
+    {
+      "no": 8,
+      "qtype": "判断题",
+      "stem": "印刷企业可以将承印业务转委托给其他印刷企业完成。",
+      "options": [
+        { "letter": "A", "text": "正确" },
+        { "letter": "B", "text": "错误" }
+      ],
+      "answer": "B",
+      "tags": ["mock", "判断"]
+    },
+    {
+      "no": 9,
+      "qtype": "单选题",
+      "stem": "下列哪项不属于承印验证制度要求核验的材料？",
+      "options": [
+        { "letter": "A", "text": "营业执照" },
+        { "letter": "B", "text": "准印证" },
+        { "letter": "C", "text": "法定代表人身份证原件" },
+        { "letter": "D", "text": "著作权授权证明" }
+      ],
+      "answer": "C",
+      "tags": ["mock", "单选"]
+    },
+    {
+      "no": 10,
+      "qtype": "多选题",
+      "stem": "关于印刷品保管制度，下列说法正确的有：",
+      "options": [
+        { "letter": "A", "text": "应当分类存放" },
+        { "letter": "B", "text": "应当建立台账" },
+        { "letter": "C", "text": "可以随意处置残次品" },
+        { "letter": "D", "text": "应当留存备查" }
+      ],
+      "answer": "ABD",
+      "tags": ["mock", "多选"]
+    },
+    {
+      "no": 11,
+      "qtype": "单选题",
+      "stem": "违反印刷业管理规定，情节严重的，出版行政部门可以采取的措施是：",
+      "options": [
+        { "letter": "A", "text": "仅口头警告" },
+        { "letter": "B", "text": "吊销印刷经营许可证" },
+        { "letter": "C", "text": "罚款五十元" },
+        { "letter": "D", "text": "不予处理" }
+      ],
+      "answer": "B",
+      "tags": ["mock", "单选"]
+    },
+    {
+      "no": 12,
+      "qtype": "判断题",
+      "stem": "印刷企业应当配合出版行政部门的监督检查，如实提供有关材料。",
+      "options": [
+        { "letter": "A", "text": "正确" },
+        { "letter": "B", "text": "错误" }
+      ],
+      "answer": "A",
+      "tags": ["mock", "判断"]
+    }
+  ]
+}
