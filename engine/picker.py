@@ -51,7 +51,7 @@ class ZonePicker:
         root.configure(cursor="crosshair")
         canvas = self.tk.Canvas(root, width=self.SW, height=self.SH, highlightthickness=0, bg="black")
         canvas.pack(fill="both", expand=True)
-        self._photo = self.ImageTk.PhotoImage(self.shot)
+        self._photo = self.ImageTk.PhotoImage(self.shot, master=root)
         canvas.create_image(0, 0, anchor="nw", image=self._photo)
         self.root, self.canvas = root, canvas
 

@@ -106,5 +106,18 @@ class LayoutTest(unittest.TestCase):
         self.assertGreaterEqual(z["options"]["y"], 180)
 
 
+
+class LowercaseGluedLetter(unittest.TestCase):
+    def test_lowercase_c_glued_to_text(self):
+        rows = [
+            {"text": "A印刷经营许可证", "x": 74, "y": 467, "w": 197, "h": 22},
+            {"text": "B出版物经营许可证", "x": 75, "y": 554, "w": 218, "h": 22},
+            {"text": "c特种行业许可证", "x": 74, "y": 641, "w": 196, "h": 22},
+            {"text": "D营业执照即可", "x": 75, "y": 728, "w": 172, "h": 22},
+        ]
+        z = [z for z in layout.detect(rows)["zones"] if z["role"] == "options"][0]
+        self.assertLessEqual(z["y"], 467)
+        self.assertGreaterEqual(z["y"] + z["h"], 750)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

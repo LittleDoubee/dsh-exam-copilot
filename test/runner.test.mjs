@@ -117,7 +117,8 @@ async function settle(runner, timeoutMs = 4000) {
 /* ── 测试 ─────────────────────────────────────────────── */
 
 test('Runner: 正常答完一题并翻页', async () => {
-	const { engine, calls } = fakeEngine({ questions: [QUESTION] });
+	// 两道题：第 1 题不是最后一题，才会点下一题
+	const { engine, calls } = fakeEngine({ questions: [QUESTION, QUESTION] });
 	const runner = new Runner({
 		engine,
 		solver: fakeSolver('A'),

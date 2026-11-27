@@ -613,12 +613,14 @@ def locate_target_window(title, notes):
     """按标题找窗口并激活；找不到时退回前台窗口。"""
     win = None
     if title and hasattr(winio, "client_rect"):
+        # 先激活再取矩形：最小化的窗口不参与匹配，激活后才能拿到真实位置
+        try:
+            if winio.activate(title):
+                time.sleep(0.3)
+        except Exception:
+            pass
         win = winio.client_rect(title)
-        if win:
-            winio.activate(title)
-            time.sleep(0.2)
-            win = winio.client_rect(title) or win  # 激活后位置可能变（从最小化恢复）
-        else:
+        if not win:
             notes.append(f"没找到标题含「{title}」的窗口，改用前台窗口")
     if not win and hasattr(winio, "foreground_client_rect"):
         win = winio.foreground_client_rect()

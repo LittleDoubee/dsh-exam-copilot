@@ -50,7 +50,8 @@ def _norm(rows):
 # 字母单独成行：选项字母画在自己的圆框/方框里时，OCR 往往把「A」和正文拆成两行，
 # 或者干脆不带标点（「A正确」）。这些形态都要算作选项字母。
 BARE_LETTER_RE = re.compile(r"^\s*[\(（\[【]?\s*([A-Ha-h])\s*[\)）\]】]?\s*[\.．、:：]?\s*$")
-GLUED_LETTER_RE = re.compile(r"^\s*([A-H])(?=[\u4e00-\u9fa5])")
+# OCR 常把大写 C 认成小写 c（字形只差大小），紧贴汉字时大小写一并接受
+GLUED_LETTER_RE = re.compile(r"^\s*([A-Ha-h])(?=[\u4e00-\u9fa5])")
 
 
 def _opt_letter(text):
@@ -62,7 +63,7 @@ def _opt_letter(text):
         return m.group(1).upper()
     m = GLUED_LETTER_RE.match(text)
     if m:
-        return m.group(1)
+        return m.group(1).upper()
     return None
 
 

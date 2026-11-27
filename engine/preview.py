@@ -95,7 +95,7 @@ class ZonePreview:
             pass
         canvas = self.tk.Canvas(root, width=self.SW, height=self.SH, highlightthickness=0, bg="#ffffff")
         canvas.pack(fill="both", expand=True)
-        self._photo = self.ImageTk.PhotoImage(self.shot)
+        self._photo = self.ImageTk.PhotoImage(self.shot, master=root)
         canvas.create_image(0, 0, anchor="nw", image=self._photo)
         canvas.create_text(self.SW // 2, self.SH - 20, text=HINT, fill="#000000",
                            font=("Segoe UI", 12, "bold"))
@@ -248,7 +248,7 @@ class ZonePreview:
         crop = self._zoomed_crop()
         if crop is None:
             return
-        self.thumb = self.ImageTk.PhotoImage(crop)
+        self.thumb = self.ImageTk.PhotoImage(crop, master=self.root)
         px, py = self.pos
         self._draw_frame(px, py)
         self._draw_image(px, py, crop.width, crop.height)

@@ -14,6 +14,16 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 
+
+def _norm_title(t):
+    """标题比对前去掉所有空白：页面标题里「·」两侧的空格常被用户手打时省略。"""
+    return "".join(str(t or "").split())
+
+
+def title_matches(title_part, actual):
+    part = _norm_title(title_part)
+    return bool(part) and part in _norm_title(actual)
+
 def make_dpi_aware():
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PER_MONITOR_AWARE
@@ -60,7 +70,7 @@ def activate(title_part):
             return True
         buf = ctypes.create_unicode_buffer(n + 1)
         u32.GetWindowTextW(hwnd, buf, n + 1)
-        if title_part in buf.value:
+        if title_matches(title_part, buf.value):
             found.append(hwnd)
         return True
 
@@ -130,7 +140,7 @@ def client_rect(title_part):
         buf = ctypes.create_unicode_buffer(n + 1)
         u32.GetWindowTextW(hwnd, buf, n + 1)
         # 跳过 DSH 自己：浏览器标签/面板标题里也可能含有这段文字
-        if title_part and title_part in buf.value and "DeepSeek Harness" not in buf.value:
+        if title_matches(title_part, buf.value) and "DeepSeek Harness" not in buf.value:
             found.append(hwnd)
         return True
 
