@@ -128,7 +128,7 @@ test('全屏预览：Esc 全局轮询 + 右键退出仍保留', () => {
 
 test('圈选后立刻截图（不等用户再点预览）', () => {
 	const src = client();
-	const i = src.indexOf('function confirmAssignRole(role)');
+	const i = src.indexOf('function dshec_act_confirmAssignRole(P, role)');
 	assert.ok(i > 0);
 	const body = src.slice(i, i + 3000);
 	assert.match(body, /screen\.previewCached/, '选完区名后必须立刻截图');
@@ -159,7 +159,7 @@ test('刷新按钮必须刷新来源文件列表（不只是题库下拉）', ()
 	const src = client();
 
 	// refreshBankAll 必须同时做三件事
-	const i = src.indexOf('async function refreshBankAll');
+	const i = src.indexOf('async function dshec_act_refreshBankAll');
 	assert.ok(i > 0, '必须有 refreshBankAll');
 	const body = src.slice(i, i + 1200);
 	assert.match(body, /loadBanks\(\)/, '要刷新题库列表');
@@ -201,7 +201,8 @@ test('渲染辅助函数里不能有 hook（否则切换 tab 会白屏）', () =
 	const COMPONENTS = new Set(['dshec_Page']);
 
 	for (const fn of fns) {
-		if (COMPONENTS.has(fn)) continue;
+		// dshec_useXxx 是自定义 hook，只在 dshec_Page 顶层无条件调用，允许含 hook
+		if (COMPONENTS.has(fn) || /^dshec_use[A-Z]/.test(fn)) continue;
 		const i = src.indexOf('function ' + fn + '(');
 		assert.ok(i > 0, '应能找到 ' + fn);
 		// 用大括号配平划出函数体：从函数签名后的第一个 { 开始数。
@@ -334,8 +335,8 @@ test('dshec_el 调用里不能有「对象当 children」（白屏根因）', ()
 
 test('网页模式的 UI 契约完整（白屏修好后该有的都在）', () => {
 	const src = client();
-	const i = src.indexOf('function dshec_channelMode()');
-	const j = src.indexOf('\n\t\t\t}\n', i);
+	const i = src.indexOf('function dshec_act_dshec_channelMode(P)');
+	const j = src.indexOf('\n\t\t}\n', i);
 	const body = src.slice(i, j > 0 ? j : i + 8000);
 
 	// DOM 补救块必须受 ch === 'web' 控制

@@ -6,6 +6,7 @@
 //   静默返回 null。渲染测试全绿也发现不了这种事，因为它测不到"点击的效果"。
 //   这层测试专门断言：点击 → 调用某个 RPC → 状态可见变化。
 
+import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -187,7 +188,7 @@ function findFirstInputProps(node, ui, found = { hit: null }) {
 }
 
 /* ── 桩：记录所有 RPC ── */
-function makeHarness() {
+function makeHarness() { // dsh-skip-func-length: 测试桩需一次性搭好 window/document/fetch 等完整宿主环境
 	const calls = [];
 	const STATUS = {
 		pluginVersion: '0.2.0',
@@ -280,7 +281,7 @@ function makeHarness() {
 	};
 
 	const code = fs.readFileSync(CLIENT, 'utf8');
-	new Function('window', 'document', 'console', 'fetch', code)(
+	vm.runInThisContext('(function (window, document, console, fetch) {\n' + code + '\n})', { filename: CLIENT })(
 		window,
 		{ body: { appendChild() {} }, getElementById: () => null, createElement: () => ({ style: {}, appendChild() {}, addEventListener() {} }) },
 		{ error() {}, log() {}, warn() {} },
@@ -628,7 +629,7 @@ test('拖入区用 capture 阶段的原生监听器拦截（不再触发 DSH 宿
 	assert.match(src, /stopImmediatePropagation/, '必须用 stopImmediatePropagation 彻底截断');
 
 	// 检查 bindDropZone 里确实注册了 4 个拖放事件，且第三个参数为 true
-	const i = src.indexOf('function dshec_bindDropZone');
+	const i = src.indexOf('function dshec_act_dshec_bindDropZone');
 	assert.ok(i > 0, '必须有 dshec_bindDropZone 实现');
 	const body = src.slice(i, i + 4000);
 	for (const ev of ['dragover', 'dragenter', 'dragleave', 'drop']) {
@@ -719,9 +720,9 @@ test('搜索区有「清除」按钮，能同时清空输入与结果', () => {
 	// 而这里要守的契约很明确：清除必须同时清两个 state。
 	const src = fs.readFileSync(CLIENT, 'utf8');
 
-	assert.match(src, /function clearSearch\(\)/, '必须有 clearSearch');
+	assert.match(src, /function dshec_act_clearSearch\(P\)/, '必须有 clearSearch');
 	// 必须同时清"输入"和"结果" —— 只清一个等于没清
-	const i = src.indexOf('function clearSearch()');
+	const i = src.indexOf('function dshec_act_clearSearch(P)');
 	const body = src.slice(i, i + 300);
 	assert.match(body, /setBankQuery\(\s*''\s*\)/, 'clearSearch 必须清空输入框');
 	assert.match(body, /setBankHits\(\s*null\s*\)/, 'clearSearch 必须清空结果列表');
@@ -733,7 +734,7 @@ test('搜索区有「清除」按钮，能同时清空输入与结果', () => {
 
 test('搜索结果区有高度上限与滚动（结果多时不把页面推下去）', async () => {
 	const src = fs.readFileSync(CLIENT, 'utf8');
-	const i = src.indexOf('(bankHits || []).length');
+	const i = src.search(/\(bankHits \|\| \[\]\)\.length\s*\?/);
 	assert.ok(i > 0, '应有搜索结果渲染');
 	const seg = src.slice(i, i + 900);
 	assert.match(seg, /maxHeight/, '搜索结果应有高度上限');
@@ -865,7 +866,7 @@ test('网页模式下的 DOM 补救 UI 存在且受 channel 控制', () => {
 	//   · 有「检测浏览器」按钮，且调用 browser.probe
 	const src = fs.readFileSync(CLIENT, 'utf8');
 
-	assert.match(src, /function dshec_channelMode\(\)/, '必须有通道选择组件');
+	assert.match(src, /function dshec_act_dshec_channelMode\(P\)/, '必须有通道选择组件');
 	// DOM 补救块的条件必须是 web
 	assert.match(src, /ch === 'web'\s*\n?\s*\? dshec_el\(/, 'DOM 补救块必须受 ch === web 控制');
 	assert.match(src, /DOM 补救/, '应有 DOM 补救开关');
