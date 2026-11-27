@@ -61,7 +61,7 @@ test('浏览器：提供 listBrowsers，列出所有已安装的（不只是第�
 	assert.equal(new Set(ids).size, ids.length, '不同浏览器不应重复列出');
 });
 
-test('浏览器：ensure 支持用户指定 browserId', async () => {
+test('浏览器：ensure 支持指定 browserId', async () => {
 	const m = await import('file://' + LAUNCH.replace(/\\/g, '/'));
 	const bl = new m.BrowserLauncher({ dataDir: path.join(process.cwd(), '.private') });
 	// 只验证签名接受参数，不真的启动

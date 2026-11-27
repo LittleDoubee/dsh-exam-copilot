@@ -8,6 +8,7 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -190,7 +191,7 @@ function makeHarness() {
 	const calls = [];
 	const STATUS = {
 		pluginVersion: '0.2.0',
-		dataDir: 'X:/d',
+		dataDir: path.join(os.tmpdir(), 'dshec-test'),
 		pythonPath: 'python',
 		engineRunning: true,
 		engine: { ok: true, ocrEngines: ['windows'], screen: { w: 1920, h: 1080 } },
@@ -212,7 +213,7 @@ function makeHarness() {
 		if (ep === 'status') value = STATUS;
 		else if (ep === 'profiles.list') value = [{ id: 'p1', name: '默认', channel: 'screen', zoneCount: 2 }];
 		else if (ep === 'profiles.get') value = { id: 'p1', name: '默认', channel: 'screen', zones: [{ role: 'question', x: 10, y: 20, w: 300, h: 100 }, { role: 'options', x: 10, y: 130, w: 300, h: 200 }], display: {}, answer: {}, prompts: {}, actions: {} };
-		else if (ep === 'browsers.list') value = { browsers: [{ id: 'chrome', name: 'Google Chrome', exe: 'C:/x/chrome.exe' }, { id: 'edge', name: 'Microsoft Edge', exe: 'C:/x/msedge.exe' }], count: 2 };
+		else if (ep === 'browsers.list') value = { browsers: [{ id: 'chrome', name: 'Google Chrome', exe: 'chrome.exe' }, { id: 'edge', name: 'Microsoft Edge', exe: 'msedge.exe' }], count: 2 };
 		else if (ep === 'zones.pick') value = { ok: true, box: { x: 100, y: 200, w: 400, h: 150 }, display: { scale: 1 } };
 		else if (ep === 'screen.previewCached') value = { dataUrl: 'data:image/png;base64,AAA', w: 400, h: 150, path: '/tmp/x.png' };
 		else if (ep === 'zones.meta') value = { roles: ['question', 'options', 'progress', 'next'], required: ['question', 'options'] };
@@ -664,7 +665,7 @@ test('拖入后界面显示已收到的文件名（状态可见）', () => {
 /* ── 题库文件管理 ─────────────────────── */
 
 test('题库详情列出已导入的文件（含题数、可删除）', async () => {
-	// 「选中某个题库，应当列出该题库下有的文件，可由用户选择删除」
+	// 选中题库后列出其来源文件，可逐个删除
 	resetHooks();
 	const harness = makeHarness();
 	const { Page, calls } = harness;
@@ -749,7 +750,7 @@ test('面板显示前端构建标识（用于判断浏览器加载的是不是�
 });
 
 test('题库无来源记录时必须显示说明（不能整块消失）', async () => {
-	// 回归：上次会话的修改内容没有显示。
+	// 回归：前端构建标识变化后旧界面不能残留。
 	// 查下来代码全在、RPC 也在，但库里 1610 题全是旧版导入、无 srcHash →
 	// sources 为空 → 原设计整块不渲染 → 用户以为功能没做。
 	// 现在改为：没有记录也显示，并说清是数据原因。

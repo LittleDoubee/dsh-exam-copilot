@@ -100,7 +100,7 @@ test('buildOverlayState：未知暂停原因也不能把内部代号直接抛给
 	assert.equal(v.note, 'weird_code');
 });
 
-test('buildOverlayState：剩余时间不足 5 分钟必须显式提醒（用户明确要求）', () => {
+test('buildOverlayState：剩余时间不足 5 分钟必须显式提醒', () => {
 	const v = buildOverlayState(snap(), { timerSeconds: 299 });
 	assert.equal(v.timerLevel, 'warn');
 	assert.match(v.note, /不足 5 分钟/);

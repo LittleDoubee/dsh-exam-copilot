@@ -173,7 +173,7 @@ async function renderSettled(component, maxRounds = 12) {
 /* ── 桩数据（形状必须与 lib/index.js 的 status 一致） ── */
 const STATUS = {
 	pluginVersion: '0.1.0',
-	dataDir: 'X:/data',
+	dataDir: 'data',
 	pythonPath: 'python',
 	pythonProbe: { python: 'python', ok: true },
 	engineRunning: true,
