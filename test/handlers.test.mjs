@@ -35,6 +35,18 @@ const ROOT = path.resolve(HERE, '..');
 const SAMPLE_BANK = path.join(ROOT, 'mock', 'mock-12.json');
 const HAS_SAMPLE = fs.existsSync(SAMPLE_BANK);
 const INDEX_SRC = path.join(ROOT, 'lib', 'index.js');
+/** 插件主体源码：index.js 加上拆出去的 handlers/*.js 与 plugin/*.js，按顺序拼接。 */
+function readPluginSrc() {
+	const parts = [fs.readFileSync(INDEX_SRC, 'utf8')];
+	for (const sub of ['handlers', 'plugin']) {
+		const dir = path.join(ROOT, 'lib', sub);
+		for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.js')).sort()) {
+			parts.push(fs.readFileSync(path.join(dir, f), 'utf8'));
+		}
+	}
+	return parts.join('\n');
+}
+
 
 /**
  * 从源码里抓出每个 handler 的名字与函数体。
@@ -43,8 +55,38 @@ const INDEX_SRC = path.join(ROOT, 'lib', 'index.js');
  *   跳过清单会随代码演进失效，而真正的判据是「这个 handler 会不会起外部进程」，
  *   那个信息就写在体内（engineClient / browserLauncher）。
  */
+/** 从 i（左花括号之后）开始做括号配对，返回函数体结束位置（跳过字符串内的括号）。 */
+function bodyEnd(src, i) {
+	let depth = 1;
+	let q = null;
+	while (i < src.length && depth > 0) {
+		const c = src[i];
+		if (q) {
+			if (c === q && src[i - 1] !== '\\') q = null;
+		} else if (c === '"' || c === "'" || c === '`') {
+			q = c;
+		} else if (c === '{') {
+			depth += 1;
+		} else if (c === '}') {
+			depth -= 1;
+		}
+		i += 1;
+	}
+	return i;
+}
+
 function scanHandlers(src) {
 	const out = [];
+	// 处理函数表：'name': (...a) => hName(d, ...a)，函数体在文件内的独立函数里
+	const tableRe = /^\t\t'?([a-zA-Z.]+)'?: \(\.\.\.a\) => (\w+)\(d, \.\.\.a\),$/gm;
+	let t;
+	while ((t = tableRe.exec(src))) {
+		const fnRe = new RegExp('function ' + t[2] + '\\([^)]*\\)\\s*\\{');
+		const fm = fnRe.exec(src);
+		if (!fm) continue;
+		const bodyStart = fm.index + fm[0].length;
+		out.push({ name: t[1], body: src.slice(bodyStart, bodyEnd(src, bodyStart) - 1) });
+	}
 	const re = /async '([a-zA-Z.]+)'\([^)]*\)\s*\{/g;
 	let m;
 	while ((m = re.exec(src))) {
@@ -233,7 +275,7 @@ async function bootHost() {
 }
 
 test('handler 扫描器：能抓到足够多的 handler（防止正则失效后本组静默空跑）', () => {
-	const src = fs.readFileSync(INDEX_SRC, 'utf8');
+	const src = readPluginSrc();
 	const handlers = scanHandlers(src);
 	assert.ok(handlers.length >= 30, `只抓到 ${handlers.length} 个 handler，正则可能失效`);
 	// 抽查几个必须存在的，确认名字抓对了
@@ -252,7 +294,7 @@ test('静态：handler 里不能调用未声明的标识符（抓 is not defined
 	//   ② 按名字给最小合法 body → 又卡在 getBankIndex(id) 返回 null 的
 	//      NOT_FOUND 上 → 还是绿。调用式冒烟永远只覆盖到第一个 return 之前。
 	// 而 `x is not defined` 是**纯静态**性质，与运行时能否走到无关。
-	const src = fs.readFileSync(INDEX_SRC, 'utf8');
+	const src = readPluginSrc();
 	const bad = findUndefinedCalls(src);
 	assert.deepEqual(
 		bad.map((b) => b.name),
@@ -262,8 +304,8 @@ test('静态：handler 里不能调用未声明的标识符（抓 is not defined
 
 	// 自检：分析器必须真的能判别，而不是永远返回空数组。
 	// 这里构造一个「只删掉 import」的版本，必须被抓到 —— 等价于本次事故。
-	const reverted = src.replace(
-		"import { AUTO_ACCEPT, BankIndex, CONFIDENCE, matchQuestion, normalizeStem } from './core/bank.js';",
+	const reverted = src.replaceAll(
+		/import \{ AUTO_ACCEPT, BankIndex, CONFIDENCE, matchQuestion, normalizeStem \} from '\.{1,2}\/core\/bank\.js';/g,
 		"import { AUTO_ACCEPT, BankIndex, CONFIDENCE, matchQuestion } from './core/bank.js';"
 	);
 	assert.notEqual(reverted, src, '自检失败：找不到那行 import，分析器可能已与实际代码脱节');
@@ -303,7 +345,7 @@ test('引擎客户端必须与 Runner 的调用面一致（resume 缺失导致�
 });
 
 test('所有不依赖引擎的 handler 都不能抛代码级错误（覆盖盲区）', async () => {
-	const src = fs.readFileSync(INDEX_SRC, 'utf8');
+	const src = readPluginSrc();
 	const handlers = scanHandlers(src);
 	const { rpc, cleanup } = await bootHost();
 	try {

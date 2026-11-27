@@ -45,7 +45,10 @@ pip install pillow rapidocr-onnxruntime psutil
 
 ```
 engine/        Python 引擎（截图、OCR、版面识别、全屏预览、动作执行）
-lib/           插件主体（面板、运行状态机、题库、模型调用）
+lib/           插件主体：index.js 组装入口，client.js 面板
+  core/        运行状态机、题库、模型调用、区域等核心逻辑
+  handlers/    面板 RPC 处理函数（配置/区域、题库、运行、通用）
+  plugin/      日志、引擎生命周期、悬浮窗、路由、服务注册
 test/          单元测试
 ```
 

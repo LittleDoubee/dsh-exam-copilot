@@ -37,3 +37,4 @@ DESIGN.md
 
 # 模拟考试页（由使用者自行测试，不发布）
 mock/
+node_modules.orig/

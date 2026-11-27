@@ -30,9 +30,21 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const INDEX_SRC = path.join(ROOT, 'lib', 'index.js');
+/** 插件主体源码：index.js 加上拆出去的 handlers/*.js 与 plugin/*.js，按顺序拼接。 */
+function readPluginSrc() {
+	const parts = [fs.readFileSync(INDEX_SRC, 'utf8')];
+	for (const sub of ['handlers', 'plugin']) {
+		const dir = path.join(ROOT, 'lib', sub);
+		for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.js')).sort()) {
+			parts.push(fs.readFileSync(path.join(dir, f), 'utf8'));
+		}
+	}
+	return parts.join('\n');
+}
+
 
 function readIndex() {
-	return fs.readFileSync(INDEX_SRC, 'utf8');
+	return readPluginSrc();
 }
 
 /** 取出 `if (mode === 'copilot') { ... }` 这一块的函数体（括号配对）。 */
